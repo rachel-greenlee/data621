@@ -8,7 +8,13 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library('faraway')
+library('ggplot2')
+library('ggExtra')
 ```
+
+
+#Linear Models w/ R Chapter 1
+
 
 ## Exercise 1.1
 The dataset teengamb concerns a study of teenage gambling in Britain. Make a
@@ -23,11 +29,47 @@ summary(teengamb)
 ```
 
 
+```{r}
+p1 <- ggplot(teengamb, aes(x = status, y = gamble)) +
+  geom_point() +
+  labs(title = "Socioeconomic Status by Gambling Expenditures/Year")
+
+ggExtra::ggMarginal(p1, type = "histogram")
+
+```
+
+```{r}
+teengamb$sex <- as.factor(teengamb$sex)
+
+ggplot(teengamb, aes(x = sex, y = gamble)) +
+  geom_boxplot() +
+  labs(title = "Teenager's Sex by Expendirues on Gambling Per Year",
+       subtitle = "0 = male, 1 = female")
+  
+```
+
+```{r}
+ggplot(teengamb, aes(x = verbal, y = gamble)) +
+  geom_point() +
+  labs(title = "Teenager's Verbal Score by Expenditures on Gambling per Year",
+       subtitle = "where verbal score = count words out of 12 correctly defined")
+```
+
+
+
 
 ## Exercise 1.3
 The dataset prostate is from a study on 97 men with prostate cancer who were
 due to receive a radical prostatectomy. Make a numerical and graphical summary
 of the data as in the first question.
+
+
+```{r}
+head(prostate)
+summary(prostate)
+```
+
+
 
 
 
@@ -36,8 +78,157 @@ The dataset sat comes from a study entitled “Getting What You Pay For: The Deb
 summary of the data as in the first question
 
 
+```{r}
+head(sat)
+summary(sat)
+```
+
+
 
 
 ## Exercise 1.5
 The dataset divusa contains data on divorces in the United States from 1920 to
 1996. Make a numerical and graphical summary of the data as in the first question.
+
+```{r}
+head(divusa)
+summary(divusa)
+```
+
+
+
+
+#Linear Models w/ R Chapter 2
+
+## Exercise 2.4
+The dataset prostate comes from a study on 97 men with prostate cancer who
+were due to receive a radical prostatectomy. Fit a model with lpsa as the response
+and lcavol as the predictor. Record the residual standard error and the R2. Now
+add lweight, svi, lbph, age, lcp, pgg45 and gleason to the model one at a
+time. For each model record the residual standard error and the R2. Plot the
+trends in these two statistics.
+
+```{r}
+# view data summary and pull up help file with variable definitions
+summary(prostate)
+```
+
+
+```{r}
+# always plot variables before running regression
+ggplot(prostate, aes(x = lcavol, y = lpsa)) +
+  geom_point()
+```
+
+
+```{r}
+# run base regression
+
+lm1 <- lm(lpsa ~ 
+            lcavol, data = prostate)
+#summary(lm1)
+
+df24 <- data.frame("adjR" = summary(lm1)$adj.r.squared, "residSE" = summary(lm1)$sigma)
+
+# adding one variable at a time & storing adjR and residSE
+lm2 <- lm(lpsa ~ 
+            lcavol +
+            lweight, data = prostate)
+df24 <- rbind(df24, list(summary(lm2)$adj.r.squared, summary(lm2)$sigma))
+
+
+lm3 <- lm(lpsa ~ 
+            lcavol +
+            lweight +
+            svi, data = prostate)
+df24 <- rbind(df24, list(summary(lm3)$adj.r.squared, summary(lm3)$sigma))
+
+
+lm4 <- lm(lpsa ~ 
+            lcavol +
+            lweight +
+            svi +
+            lbph, data = prostate)
+df24 <- rbind(df24, list(summary(lm4)$adj.r.squared, summary(lm4)$sigma))
+
+
+lm5 <- lm(lpsa ~ 
+            lcavol +
+            lweight +
+            svi +
+            lbph +
+            age, data = prostate)
+df24 <- rbind(df24, list(summary(lm5)$adj.r.squared, summary(lm5)$sigma))
+
+
+lm6 <- lm(lpsa ~ 
+            lcavol +
+            lweight +
+            svi +
+            lbph +
+            age +
+            lcp, data = prostate)
+df24 <- rbind(df24, list(summary(lm6)$adj.r.squared, summary(lm6)$sigma))
+
+
+lm7 <- lm(lpsa ~ 
+            lcavol +
+            lweight +
+            svi +
+            lbph +
+            age +
+            lcp +
+            pgg45, data = prostate)
+df24 <- rbind(df24, list(summary(lm7)$adj.r.squared, summary(lm7)$sigma))
+
+lm8 <- lm(lpsa ~ 
+            lcavol +
+            lweight +
+            svi +
+            lbph +
+            age +
+            lcp +
+            pgg45 +
+            gleason, data = prostate)
+df24 <- rbind(df24, list(summary(lm8)$adj.r.squared, summary(lm8)$sigma))
+
+```
+
+
+### It appears the adjusted R-squared and the residual standard error have a perfect linear relationship.
+
+```{r}
+# plotting the stored adjusted R-squared and residual standard error from each
+# model
+
+df24$vars <- 1:nrow(df24)
+
+ggplot(df24, aes(x = vars, y = residSE)) +
+  geom_point()
+
+ggplot(df24, aes(x = vars, y = adjR)) +
+  geom_point()
+
+ggplot(df24, aes(x = adjR, y = residSE)) +
+  geom_point()
+```
+
+
+## Exercise 2.5
+Using the prostate data, plot lpsa against lcavol. Fit the regressions of lpsa
+on lcavol and lcavol on lpsa. Display both regression lines on the plot. At
+what point do the two lines intersect?
+
+
+```{r}
+lmA <- lm(lcavol ~ lpsa, data = prostate)
+lmB <- lm(lpsa ~ lcavol, data = prostate)
+
+ggplot(prostate, aes(lcavol, lpsa)) +
+  geom_point() +
+  geom_line(aes(x = predict(m), color = "lcavol ~ lpsa")) +
+  geom_line(aes(y = predict(m2), color = "lpsa ~ lcavol"))
+
+
+```
+
