@@ -14,6 +14,7 @@ https://gattonweb.uky.edu/sheather/book/data_sets.php
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library('data.table')
+library('ggplot2')
 
 ```
 
@@ -150,11 +151,59 @@ predict(housing_lm1, data.frame(LoanPaymentsOverdue = 4), interval = "confidence
 
 
 
+3. The manager of the purchasing department of a large company would like to
+develop a regression model to predict the average amount of time it takes to
+process a given number of invoices. Over a 30-day period, data are collected on
+the number of invoices processed and the total time taken (in hours). The data
+are available on the book web site in the file invoices.txt. The following model
+was fit to the data: 0 1 Y = b + b x + e where Y is the processing time and x is the
+number of invoices. A plot of the data and the fitted model can be found in
+Figure 2.7 . Utilizing the output from the fit of this model provided below, complete
+the following tasks.
+
+
+```{r}
+inv_df <- read.table('https://gattonweb.uky.edu/sheather/book/docs/datasets/invoices.txt', header=TRUE)
+
+head(inv_df)
+```
+
+(a) Find a 95% confidence interval for the start-up time, i.e., b0 .
+**0.3912 to 0.2922**
+
+```{r}
+inv_lm1 <- lm(Time ~ Invoices,
+              data = inv_df)
+summary(inv_lm1)
+
+# to get 95% confidence interval for y-intercept
+confint(inv_lm1, '(Intercept)', level = 0.95)
+
+```
+
+
+(b) Suppose that a best practice benchmark for the average processing time for
+an additional invoice is 0.01 hours (or 0.6 minutes). Test the null hypothesis
+0 1 H : b = 0.01 against a two-sided alternative. Interpret your result.
+**Yes the range of the slope in this confidence interval contains 0.01, as the range is 0.0096 to 0.0130.**
+
+```{r}
+# check confidence interval range for the given null hypothesis
+confint(inv_lm1, 'Invoices', level = 0.95)
+
+```
 
 
 
+(c) Find a point estimate and a 95% prediction interval for the time taken to process
+130 invoices.
+**The exact prediction is 2.1096, with a confidence interval spanning 1.4229 to 2.7963.**
 
 
+```{r}
+predict(inv_lm1, data.frame(Invoices = 130), interval = "predict", level = 0.95)
+
+```
 
 
 
