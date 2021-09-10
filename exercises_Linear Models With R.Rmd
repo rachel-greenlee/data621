@@ -232,3 +232,170 @@ ggplot(prostate, aes(lcavol, lpsa)) +
 
 ```
 
+
+
+#Linear Models w/ R Chapter 3
+## Exercise 3.4
+
+4. Using the sat data:
+(a) Fit a model with total sat score as the response and expend, ratio and
+salary as predictors. Test the hypothesis that βsalary = 0. Test the hypothesis
+that βsalary = βratio = βexpend = 0. Do any of these predictors have an
+effect on the response?
+
+
+```{r}
+head(sat)
+```
+
+
+```{r}
+# model with 3 predictors
+sat_lm1 <- lm(total ~ expend + ratio + salary, data = sat)
+summary(sat_lm1)
+```
+
+The hypothesis that βsalary = 0 is rejected due to a low p-value of 0.002
+
+```{r}
+# test null hypothesis that Beta_salary = 0
+# meaning that the salary alone doesn't have any slope/affect on total avg score
+sat_lm2 <- lm(total ~ salary, data = sat)
+summary(sat_lm2)
+```
+
+
+The null hypothesis that βsalary = βratio = βexpend = 0 is rejected due to the small p-value of 0.0121.
+
+```{r}
+# create model where slope = 1 (aka no variables predicting)
+sat_nullmod <- lm(total ~ 1, sat)
+
+# compare null to our model created above
+anova(sat_nullmod, sat_lm1)
+```
+
+
+
+(b) Now add takers to the model. Test the hypothesis that βtakers = 0. Compare
+this model to the previous one using an F-test. Demonstrate that the F-test and
+t-test here are equivalent.
+
+```{r}
+# model with 4 predictors
+sat_lm3 <- lm(total ~ expend + ratio + salary + takers, data = sat)
+summary(sat_lm3)
+```
+
+
+The hypothesis that βtakers = 0 is rejected due to a low p-value of nearly zero.
+
+
+```{r}
+# test null hypothesis that Beta_takers = 0
+# meaning that the takers alone doesn't have any slope/affect on total avg score
+sat_lm4 <- lm(total ~ takers, data = sat)
+summary(sat_lm4)
+```
+
+The test shows that the model with the addition of 'takers' is justifiable due to the small p-value.
+
+
+```{r}
+anova(sat_lm1, sat_lm3)
+```
+
+
+
+#Linear Models w/ R Chapter 4
+## Exercise 4.5
+
+5. For the fat data used in this chapter, a smaller model using only age, weight,
+height and abdom was proposed on the grounds that these predictors are either
+known by the individual or easily measured.
+
+```{r}
+fat_lm0 <- lm(brozek ~ age + weight + height + neck + chest + abdom + hip + 
+                thigh + knee + ankle + biceps + forearm + wrist, data=fat)
+fat_lm1 <- lm(brozek ~ age + weight + height + abdom, data = fat)
+```
+
+
+
+(a) Compare this model to the full thirteen-predictor model used earlier in the
+chapter. Is it justifiable to use the smaller model?  
+
+
+Since the p-value is small the null hypothesis is rejected. Removing all of the predictors is not justifiable.
+
+We were essentially testing a H0: β's of the removed predictors = 0. They do not equal zero, so we can't remove them (may be better to test one at a time).
+
+```{r}
+anova(fat_lm1, fat_lm0)
+```
+
+
+
+(b) Compute a 95% prediction interval for median predictor values and compare
+to the results to the interval for the full model. Do the intervals differ by a
+practically important amount?  
+
+
+Full model is body fat between 9.62% and 25.37%.  
+
+Smaller model is body fat between 9.7% and 25.98%.  
+I would argue they do not differ by an practically important amount a user would care about.
+
+```{r}
+
+# grab model and get median coefficients in format the predict func will like
+fat_lm0_matrix <- model.matrix(fat_lm0)
+(fat_lm0_medians <- apply(fat_lm0_matrix, 2, median))
+predict(fat_lm0, new = data.frame(t(fat_lm0_medians)), interval = "prediction")
+
+# and again for the smaller model
+fat_lm1_matrix <- model.matrix(fat_lm1)
+(fat_lm1_medians <- apply(fat_lm1_matrix, 2, median))
+predict(fat_lm1, new = data.frame(t(fat_lm1_medians)), interval = "prediction")
+
+```
+
+
+
+(c) For the smaller model, examine all the observations from case numbers 25 to
+50. Which two observations seem particularly anomalous?  
+
+Case numbers 47 & 50 have negative body fat %, which isn't possible.
+
+```{r}
+new_df_25_50 <- fat[25:50,c(4,5,6,11)]
+predict(fat_lm1, new=data.frame(new_df_25_50), interval="prediction")
+```
+
+
+
+
+(d) Recompute the 95% prediction interval for median predictor values after these
+two anomalous cases have been excluded from the data. Did this make much
+difference to the outcome?
+
+The prediction interval is 9.71% to 26.04%. This is a bit smaller than before we removed those 2 troublesome cases.
+
+```{r}
+fat_cleaned <- fat[-c(47, 50),]
+
+fat_lm1_cleaned <- lm(brozek ~ age + weight + height + abdom, data = fat_cleaned)
+
+fat_lm1_cleaned_matrix <- model.matrix(fat_lm1_cleaned)
+(fat_lm1_cleaned_medians <- apply(fat_lm1_cleaned_matrix, 2, median))
+predict(fat_lm1_cleaned, new = data.frame(t(fat_lm1_cleaned_medians)), interval = "prediction")
+```
+
+
+
+#Linear Models w/ R Chapter 5
+## Exercise 5.2
+
+
+#Linear Models w/ R Chapter 14
+## Exercise 14.2
