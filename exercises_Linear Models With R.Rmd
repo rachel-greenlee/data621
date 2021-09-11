@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library('faraway')
 library('ggplot2')
 library('ggExtra')
+library('skimr')
+library('tidyverse')
 ```
 
 
@@ -226,8 +228,8 @@ lmB <- lm(lpsa ~ lcavol, data = prostate)
 
 ggplot(prostate, aes(lcavol, lpsa)) +
   geom_point() +
-  geom_line(aes(x = predict(m), color = "lcavol ~ lpsa")) +
-  geom_line(aes(y = predict(m2), color = "lpsa ~ lcavol"))
+  geom_line(aes(x = predict(lmA), color = "lcavol ~ lpsa")) +
+  geom_line(aes(y = predict(lmB), color = "lpsa ~ lcavol"))
 
 
 ```
@@ -394,8 +396,89 @@ predict(fat_lm1_cleaned, new = data.frame(t(fat_lm1_cleaned_medians)), interval 
 
 
 #Linear Models w/ R Chapter 5
-## Exercise 5.2
+## Exercise 5.2  
+
+Use the odor dataset with odor as the response and temp as a predictor. Consider
+all possible models that also include all, some or none of the other two predictors.
+Report the coefficient for temperature, its standard error, t-statistic and p-value in
+each case. Discuss what stays the same, what changes and why. Which model is
+best?
+
+```{r}
+head(odor)
+```
+
+
+None of the Adjusted R-Squared in the 4 models are all that good, some are even negative. No significant p-values. 
+
+```{r}
+odor_lm0 <- lm(odor ~ temp, data = odor)
+odor_lm_some <- lm(odor ~ temp + gas, data = odor)
+odor_lm_some2 <- lm(odor ~ pack + gas, data = odor)
+odor_lm_all <- lm(odor ~ temp + gas + pack, data = odor)
+
+summary(odor_lm0)
+summary(odor_lm_some)
+summary(odor_lm_some2)
+summary(odor_lm_all)
+
+```
+
+
+
 
 
 #Linear Models w/ R Chapter 14
-## Exercise 14.2
+## Exercise 14.2  
+
+Using the infmort data, find a simple model for the infant mortality in terms of
+the other variables. Be alert for transformations and unusual points. Interpret your
+model by explaining what the regression parameter estimates mean.
+
+*Note we haven't read the chapter on transformations yet so I may be missing something here*
+
+```{r}
+head(infmort)
+skim(infmort)
+
+ggplot(infmort, aes(x = income)) +
+  geom_histogram()
+
+ggplot(infmort, aes(x = mortality)) +
+  geom_histogram()
+
+ggplot(infmort, aes(x = region)) +
+  geom_histogram(stat = "count")
+
+ggplot(infmort, aes(x = oil)) +
+  geom_histogram(stat = "count")
+
+```
+The full model shows income is not significant, but that oil and region might be. 
+
+```{r}
+inf_fullmod <- lm(mortality ~ income + oil + region, data = infmort)
+summary(inf_fullmod)
+```
+
+
+Checking to see what each one does on it's own, income is once again not significant.
+
+```{r}
+drop1(inf_fullmod, test = "F")
+```
+
+```{r}
+inf_partialmod <- lm(mortality ~ region + oil, data = infmort)
+summary(inf_partialmod)
+```
+Not a ton of improvement. Lets try region and oil as an interaction term.
+
+```{r}
+inf_partialmod_int <- lm(mortality ~ region:oil, data = infmort)
+summary(inf_partialmod_int)
+```
+
+This shows a slightly lower residual standard error, meaning our predictions are better, and the adjusted r-squared increased. 
+
+
