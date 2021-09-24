@@ -482,3 +482,153 @@ summary(inf_partialmod_int)
 This shows a slightly lower residual standard error, meaning our predictions are better, and the adjusted r-squared increased. 
 
 
+
+#Linear Model w/ R Chapter 6
+## Exercise 6.1
+
+1. Using the sat dataset, fit a model with the total SAT score as the response and
+expend, salary, ratio and takers as predictors. Perform regression diagnostics on
+this model to answer the following questions. Display any plots that are relevant.
+Do not provide any plots about which you have nothing to say. Suggest possible
+improvements or corrections to the model where appropriate.
+
+
+```{r}
+?sat
+```
+
+```{r}
+sat_model <- lm(total ~ expend + salary + ratio + takers, data = sat)
+summary(sat_model)
+```
+
+
+
+(a) Check the constant variance assumption for the errors.
+
+
+
+On the residuals vs fitted plot does appear a bit curved, such that the residuals are more positive on the lower and higher extremes of the x-values. This is slightly concerning so we will look at the square root of the absolute value of the errors, as this effectively doubles the resolution of the residuals to see more clearly.
+
+
+```{r}
+plot(fitted(sat_model), residuals(sat_model), xlab = "Fitted", ylab = "Residuals")
+abline(h=0)
+
+```
+
+This appears to have more constant variance and I don't believe there is any reason to be concerned. 
+
+```{r}
+plot(fitted(sat_model), sqrt(abs(residuals(sat_model))), xlab = "Fitted", ylab = expression(sqrt(hat(epsilon))))
+
+```
+
+
+
+(b) Check the normality assumption.  
+
+There is some flaring toward the highest end of x-values, but otherwise the normality assumption is well-met. 
+
+
+```{r}
+qqnorm(residuals(sat_model), ylab = "Residuals", main = "")
+qqline(residuals(sat_model))
+```
+
+
+
+(c) Check for large leverage points.
+
+A rough rule is that leverages of more than 2p/n should be looked at more closely. In this case that value would be 2 * 4 (predictors) / 50 (n) = 0.16. Looking at the top 10 highest leverage values, the top 7 are larger than this value so we will take a closer look with a half-normal plot (best for positive values).
+
+
+
+```{r}
+hatv <- hatvalues(sat_model)
+
+head(sort(hatv, decreasing = TRUE), 10)
+sum(hatv)
+```
+
+
+
+We see Utah and California listed as being outliers, but do seem to fall in the trend of the rest of the data despite being very extreme x-values. 
+
+
+```{r}
+states <- row.names(sat)
+halfnorm(hatv, labs = states, ylab = "Leverages")
+```
+
+Looking at this Q-Q plot of the standardized residuals, things are less concerning. Since the residuals have now been standardized, we expect the points to roughly follow this x = y line, which it does, meaning normality is holding here. Further, we don't have any absolute values beyond 2, which is to be expected under the standard normal.  
+
+**Conclude that there are no leverage points affecting the model's slope.**
+
+```{r}
+qqnorm(rstandard(sat_model))
+abline(0,1)
+```
+
+
+
+(d) Check for outliers.  
+
+Using the Bonferroni correction we can compute if a value is a outlier. The general formula is qt(1-alpha/2, n-p).
+
+
+
+```{r}
+stud <- rstudent(sat_model)
+stud[which.max(abs(stud))]
+
+qt(p = 0.05/(50*2), df = 46)
+
+```
+
+
+
+(e) Check for influential points.  
+
+An influential point is one whose removal from the dataset would cause a large change in in the fit. The Cook statistics are popular influence diagnostics because they reduce the information to a single value for each case. We see that Utah, West Virginia, and New Hampshire are the top 3 influential observations. 
+
+```{r}
+cook <- cooks.distance(sat_model)
+halfnorm(cook, 3, labs = states, y.lab = "Cook's distances")
+```
+
+To see the model with Utah removed. Compared to our original model, we see the coefficients for expend, salary, and ratio all changed by large magnitudes which is disconcerting that the estimates are so sensitive to just one state. 
+
+```{r}
+sat_model_no_utah <- lm(total ~ expend + salary + ratio + takers, data = sat, subset = (cook < max(cook)))
+summary(sat_model_no_utah)
+summary(sat_model)
+
+```
+
+
+```{r}
+plot(dfbeta(sat_model)[,4], ylab = "Change in ratio coef")
+abline(h=0)
+### I can't get the identify() function to work to see outliers here
+```
+
+
+
+(f) Check the structure of the relationship between the predictors and the response.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
