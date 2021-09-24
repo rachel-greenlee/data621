@@ -615,7 +615,6 @@ abline(h=0)
 
 
 
-(f) Check the structure of the relationship between the predictors and the response.
 
 
 
@@ -631,4 +630,37 @@ abline(h=0)
 
 
 
+
+
+
+
+#Linear Models w/ R Chapter 9
+## Exercise 9.1
+The aatemp data come from the U.S. Historical Climatology Network. They are
+the annual mean temperatures (in degrees F) in Ann Arbor, Michigan going back
+about 150 years.  
+
+(a) Is there a linear trend?  
+
+(b) Observations in successive years may be correlated. Fit a model that estimates
+this correlation. Does this change your opinion about the trend?  
+
+(c) Fit a polynomial model with degree 10 and use backward elimination to reduce
+the degree of the model. Plot your fitted model on top of the data. Use this
+model to predict the temperature in 2020.  
+
+(d) Suppose someone claims that the temperature was constant until 1930 and then
+began a linear trend. Fit a model corresponding to this claim. What does the
+fitted model say about this claim?  
+
+(e) Make a cubic spline fit with six basis functions evenly spaced on the range.
+Plot the fit in comparison to the previous fits. Does this model fit better than
+the straight-line model?  
+
+
+
+## Exercise 9.3
+Using the ozone data, fit a model with O3 as the response and temp, humidity and
+ibh as predictors. Use the Box–Cox method to determine the best transformation
+on the response.  
 
