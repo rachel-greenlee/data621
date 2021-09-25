@@ -640,27 +640,156 @@ The aatemp data come from the U.S. Historical Climatology Network. They are
 the annual mean temperatures (in degrees F) in Ann Arbor, Michigan going back
 about 150 years.  
 
-(a) Is there a linear trend?  
+```{r}
+?aatemp
+```
+
+
+(a) Is there a linear trend?   
+
+From this basic scatterplot it does appear there could be a positive linear trend. When adding the geom_smooth's attempt at a linear model line there is a slight positive linear trend.
+
+```{r}
+ggplot(aatemp, aes(x = year, y = temp)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
 
 (b) Observations in successive years may be correlated. Fit a model that estimates
 this correlation. Does this change your opinion about the trend?  
+**Haven't covered this concept in book yet**
 
 (c) Fit a polynomial model with degree 10 and use backward elimination to reduce
 the degree of the model. Plot your fitted model on top of the data. Use this
 model to predict the temperature in 2020.  
+**Haven't covered this concept in book yet**
 
 (d) Suppose someone claims that the temperature was constant until 1930 and then
 began a linear trend. Fit a model corresponding to this claim. What does the
 fitted model say about this claim?  
+**Haven't covered this concept in book yet**
 
 (e) Make a cubic spline fit with six basis functions evenly spaced on the range.
 Plot the fit in comparison to the previous fits. Does this model fit better than
 the straight-line model?  
-
-
+**Haven't covered this concept in book yet**
 
 ## Exercise 9.3
 Using the ozone data, fit a model with O3 as the response and temp, humidity and
 ibh as predictors. Use the Box–Cox method to determine the best transformation
 on the response.  
+
+```{r}
+
+ozone_lm <- lm(O3 ~ temp + humidity + ibh, data = ozone)
+```
+
+```{r}
+require(MASS)
+boxcox(ozone_lm, plotit=T)
+
+# zoom in on the confidence interval
+boxcox(ozone_lm, plotit=T,
+       lambda = seq(0, 0.5, by = 0.1))
+
+```
+
+
+#Linear Models w/ R Chapter 13
+## Exercise 13.1
+The dataset kanga contains data on the skulls of historical kangaroo specimens.
+Ignore the sex and species variables for the purposes of this question.  
+
+(a) Report on the distribution of missing values within the data according to case
+and variable.  
+From the table below we can see that 101 of the cases have no  missing values, 17 are missing only palate.width, 10 are missing mandible.length, and so on. Looking on the far right column for the totals, there are no cases missing more than 3 values. This is useful for seeing combinations/patterns of missing values.  
+
+If we sum the left column, except for the 101 complete cases, we can see that if we were to delete any incomplete cases we would lose 47 of 148 cases, 32% of the original data.
+
+```{r}
+
+library(mice)
+library(kableExtra)
+kable((md.pattern(kanga, plot = FALSE)), format = "html")
+```
+
+I also like using the skim function. The complete rate only shows palate.width with a missing rate below 90% (at 84%) and 24 missing cases. The rest are not too concerning.
+
+```{r}
+library(skimr)
+fix_windows_histograms() #otherwise histograms display as unicode
+skim(kanga)
+```
+
+
+(b) Determine a combination of variable and case deletions that retains the most
+information.  
+
+First we'll delete any case with a missing value and see the correlation plot for any collinearity in variables.  
+
+For palate.width, for which 24 cases have an NA, the correlation plot shows very strong correlations (0.8) with zygomatic.width, occipital.depth, and mandible.length. This is high enough to suggest collinearity and since these other variables will likely carry any prediction load, I choose to simply remove the palate.width variable from the original kanga dataset.
+
+```{r, fig.height=10, fig.width = 8}
+# remove any row with an NA in any column
+kanga_complete <- na.omit(kanga)
+
+# remove two categorical variables sex and species
+kanga_complete_corr <- subset(kanga_complete, select = -c(species, sex))
+
+# correlation plot of complete cases from kanga
+library(ggcorrplot)
+corr <- round(cor(kanga_complete_corr), 1)
+ggcorrplot(corr, method = "circle", type = "upper", lab = TRUE, insig = "blank")
+
+# remove palate.width from original kanga set
+kanga_slim <- subset(kanga, select = -c(palate.width))
+
+
+```
+
+Since the rest of the missing data appears to be random and never accounts for more than 10% of cases, I will impute the remaining values using a regression fill-in method. The textbook notes (page 202) that this method works best when the predictors have more colinearity, which is certainly the case in this dataset as seen in the correlation plot above.
+
+```{r}
+# impute using linear regression
+kanga_imputed <- complete(mice(data = kanga_slim, m = 1,
+                               method = "norm.predict"))
+
+# check to see now there are no NAs
+skim(kanga_imputed)
+```
+
+
+
+c) Compute the PCA, omitting all missing cases, where all the variables have
+been scaled to have SD 1. Report on the standard deviation of the principal
+components.  
+**Not covered in this class yet.**  
+
+(d) Perform multiple imputation 25 times, applying PCA in the same manner to
+each of the imputed datasets. Combine the standard deviations of the principal
+components in the imputed datasets.  
+**Not covered in this class yet.**
+
+## Exercise 13.2
+2. The dataset galamiss contains the Galapagos data frequently featured as an example
+in this text as gala but with the original missing values left in.  
+**Unfortunately dataset doesn't exist.**
+
+(a) Fit a linear model using gala with the number of species as the response and
+the five geographic predictors as in earlier examples.  
+
+
+(b) Fit the same model to galamiss using the deletion strategy for missing values.
+Compare the fit to that in (a).  
+
+(c) Use mean value single imputation on galamiss and again fit the model. Compare
+to previous fits.  
+
+(d) Use a regression-based imputation using the other four geographic predictors
+to fill in the missing values in galamiss. Fit the same model and compare to
+previous fits.  
+
+(e) Use multiple imputation to handle missing values and fit the same model again.
+Compare to previous fits.  
 
