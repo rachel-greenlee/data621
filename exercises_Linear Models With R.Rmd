@@ -776,6 +776,7 @@ components in the imputed datasets.
 in this text as gala but with the original missing values left in.  
 **Unfortunately dataset doesn't exist.**
 
+
 (a) Fit a linear model using gala with the number of species as the response and
 the five geographic predictors as in earlier examples.  
 
@@ -793,3 +794,59 @@ previous fits.
 (e) Use multiple imputation to handle missing values and fit the same model again.
 Compare to previous fits.  
 
+#Linear Models w/ R Chapter 7
+## Exercise 7.3
+3. Using the divusa data:
+(a) Fit a regression model with divorce as the response and unemployed, femlab,
+marriage, birth and military as predictors. Compute the condition
+numbers and interpret their meanings.  
+
+
+```{r}
+#?divusa
+
+div_mod <- lm(divorce ~ unemployed + femlab + marriage + birth + military, data = divusa)
+summary(div_mod)
+
+```
+
+Looking at the pairwise correlations below none of the variables in the model seem too correlated.
+
+```{r}
+round(cor(divusa[,-9]), 2)
+```
+
+The eigenvalues have some range, but the condition numbers are not too large.
+
+```{r}
+# taken from book page 108
+x <- model.matrix(div_mod)[,-1]
+e <- eigen(t(x) %*% x)
+e$val
+
+sqrt(e$val[1]/e$val)
+```
+
+
+(b) For the same model, compute the VIFs. Is there evidence that collinearity
+causes some predictors not to be significant? Explain.  
+
+VIF, or variance inflation factor, is a simple measure of the harm produced by collinearity. The square root of the VIF indicates how much the confidence interval for Beta-j is expanded relative to similar uncorrelated data, were it possible for such data to exist.
+
+
+Compared to the example in the book with some values in the hundred, these numbers are low and not concerning. If you were to take the square root of one of the below values, we would say, "the standard error for unemployed is x times larger than it would have been without collinearity". 
+
+"Variance inflation factors exceeding 4 indicate that confidence intervals for these coefficients are more than twice as wide as they would be for uncorrelated predictors" - p433 An R Companion to Applied Regression 3rd Edition
+
+None of the values below are larger than 4. 
+
+```{r}
+# in faraway package
+vif(x)
+```
+
+
+(c) Does the removal of insignificant predictors from the model reduce the collinearity?
+Investigate.
+
+**I don't believe there is any to start with.**
