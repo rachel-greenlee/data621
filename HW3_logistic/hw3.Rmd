@@ -267,7 +267,7 @@ tied_vars <- df_corr_pw%>%
 
 # Creating collinearity plots
 rt <- raw %>%
-  ggplot(aes(rad,tax)) +
+  ggplot(aes(rad,tax,color=target_fact)) +
   geom_point() +
   geom_smooth(method='lm',se=F) +
   ggtitle("rad and tax relationship") +
@@ -276,7 +276,7 @@ rt <- raw %>%
   theme_bw()
 
 dn <- raw %>%
-  ggplot(aes(log(dis),log(nox))) +
+  ggplot(aes(log(dis),log(nox),color=target_fact)) +
   geom_point() +
   geom_smooth(method='lm',se=F) +
   ggtitle("nox and dis relationship") +
@@ -285,7 +285,7 @@ dn <- raw %>%
   theme_bw()
 
 mr <- raw %>%
-  ggplot(aes(medv,rm)) +
+  ggplot(aes(medv,rm,color=target_fact)) +
   geom_point() +
   geom_smooth(method='lm',se=F) +
   ggtitle("medv and rm relationship") +
@@ -879,7 +879,7 @@ By examining the VIF score table above we see that `medv` has a VIF above 9 for 
 \newpage
 
 ## Marginal Model Plots
-The final thing we want to check with our selected model (model 10) are the marginal model plots. Each data line, that is, the line created for the response on the predictor, mathces the model line, the line for the fitted values on the predictor. Since both lines match very closely the model can be determined to be adequate.
+The final thing we want to check with our selected model (model 10) are the marginal model plots. Each data line, that is, the line created for the response on the predictor, matches the model line, the line for the fitted values on the predictor. Since both lines match very closely the model can be determined to be adequate.
 ```{r, results='asis', fig.align='center', fig.height=5,fig.width=5}
 mmps(model10,main=NULL)
 ```
