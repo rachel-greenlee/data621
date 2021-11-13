@@ -3,28 +3,36 @@ title: "Wine Sales"
 author: "Biguzzi, Connin, Greenlee, Moscoe, Sooklall, Telab, and Wright"
 date: "11/05/2021"
 output:
+  pdf_document: default
   word_document: default
-  html_document:
-    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width = 7)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width = 8, out.width = "100%")
 ```
 
 ```{r, include = FALSE}
-library(skimr) # for dataset summaries
-library(finalfit) # for missingness patterns
 library(dplyr)
+library(flextable)
+library(dlookr) # for data exploration & imputation
+library(corrplot) # for visualization variable correlations
 
 raw <- read.csv("https://raw.githubusercontent.com/rachel-greenlee/data621/main/HW5_count/wine-training-data.csv")
 eval <- read.csv("https://raw.githubusercontent.com/rachel-greenlee/data621/main/HW5_count/wine-evaluation-data.csv")
+
+
 ```
 
 
 ## Introduction
 
-Using the information about sample wine orders by restaurants and wine stores after a tasting, how can we predict wine sales by various wine characteristics? Using the `wine` dataset with 12,000 entries and variables mostly related to the chemical properties of each wine, we will build a count regression model to predict the number of cases of wine that will be sold. In practice, if a wine manufacturer can predict which wines will lead to greater sales, they can choose to offer those at more tastings in restaurants and wine stores.
+Using the information about sample wine orders by restaurants and wine stores after a tasting, how can we predict wine sales by various wine characteristics? Using the `wine` dataset with 12,000 entries and variables mostly related to the chemical properties of each wine, we will build a count regression model to predict the number of cases of wine that will be sold. In practice, if a wine manufacturer can predict which wines will lead to greater sales, they can choose to offer those at more tastings in restaurants and wine stores.  
+
+Using the training data set we will build:  
+
+* two different poisson regression models
+* two different negative binomial regression models
+* two different multiple linear regression models
 
 In this report we will:
 
@@ -37,51 +45,307 @@ In this report we will:
 
 ## Data Exploration
 
-As part of our initial data exploration we want to look at the following key diagnostics:  
+As part of our initial data exploration below, we find the following issues that will be handled in the Data Preparation section: 
 
-####### update as sections fill in below
-
-
-### Distribution
-
-Using the skimr package we take a look at the raw dataset. There are 12,795 cases and 14 potential predictor variables. All variables are numeric.  
-
-With regards to missingness, we have 6 variables with data for every case. This leaves 8 variables that have some degree of missing data, with the worst being the `STARS` variable with only 73.7% of cases having a value for `STARS` (the wine rating by experts). 
+* large amounts of negative values for 8 of the chemical measures (which must be in error)
+* 26.25% of cases have a missing `STARS` value
+* `Label Appeal`, `AcidIndex`, `STARS` have imported as integers, but as could be interpreted as categorical variables due to lack of continuity
+* many of the chemical variables could benefit from log transformations, after seeing the normality plots
 
 
-```{r, skimr_digits = 0}
-skim_without_charts(raw)
+### First Look
+
+Taking a look at the structure of the dataset we have 12,795 cases and 14 potential predictor variables. All variables are numeric. We'll remove the `INDEX` variable as it isn't needed in model building.
+
+```{r}
+str(raw)
+
+# remove first column, INDEX
+raw <- raw[-1]
 ```
 
 
-
-Looking for patterns in missingness can be telling, we use the missing package to visualize the missing data.
+The table below shows the range of the TARGET (# cases purchased) ranges from 0 - 8. We also see a large amount of negative values across some of the chemical variables. We will need to deal with these values and/or cases later as it isn't possible for wine to have negative values in any of these chemical measures.
 
 ```{r}
 raw %>%
-  missing_plot()
+    diagnose_numeric()%>%
+    select(variables, min, mean, median, max, zero, minus)%>%
+    flextable(theme_fun = theme_booktabs()) %>%
+    colformat_double(digits = 2)
 ```
 
 
-```{r, fig.width= 9}
-explanatory = c("TotalSulfurDioxide", "pH", "ResidualSugar",
-                "Chloride", "FreeSulfurDioxide",
-                "Sulphates", "Alcohol", "STARS")
-dependent = "TARGET"
+### Checking for Normality
 
-missing_table <- raw %>% 
-  missing_pattern(dependent, explanatory, plot = FALSE)
+Using the Shapiro-Wilk normality test on each of the variables, we see all of the p-values are less than 0.05 which means none of our variables are normally distributed in their raw form.
 
-missing_table <- as.data.frame(missing_table, row.names = NULL)
-
-?as.data.frame
-
-missing_table <- arrange(missing_table, V9)
-missing_table
-
+```{r}
+raw %>% 
+  normality() %>%
+  arrange(desc(p_value)) %>%
+    flextable(theme_fun = theme_booktabs()) %>%
+    colformat_double(digits = 3)
 
 ```
 
 
+Below we visualize with a histogram and Q-Q plot for each variable for which we want to check for normality, excluding the `TARGET` variable and variables we will conver to factors later. It appears that all 11 of the variables would benefit from a log transformation, which will likely become even more necessary once we correct for the un-interpretable negative values many of these variables have in the original dataset.
+
+```{r, fig.height=6}
+# normality plots for all numeric dependent variables
+raw %>%
+  select(-TARGET, -LabelAppeal, -STARS, -AcidIndex) %>%
+  plot_normality()
+```
+
+
+
+### Missingness
+
+With regards to missingness, we have 6 variables with data for every case. This leaves 8 variables that have some degree of missing data, with the worst being the `STARS` variable with 26.25% of cases missing a value for `STARS` (the wine rating by experts). None of the remaining 7 variables have more than 10% missing, so we will not consider dropping or imputing missing values for them.
+
+```{r}
+# check for missing values
+raw %>%
+    diagnose() %>%
+    select(-unique_count, -unique_rate) %>%
+    filter(missing_count > 0) %>%
+    arrange(desc(missing_count)) %>%
+    flextable(cwidth = 1.2) %>%
+    colformat_double(digits = 2)
+```
+
+
+
+Looking for patterns in missingness can be telling. Below the 8 variables with at least some missingness are plotted for the top 30 most frequent combinations of missing values.  
+
+We don't see any major relationships of missingness that affect a large number of cases in the dataset.
+```{r, fig.height=6}
+
+# plotting patterns in missingness of top 6 most-missing variables
+raw %>% 
+  plot_na_intersect(only_na = TRUE, typographic = FALSE, n_intersacts = 30)
+
+```
+
+### Correlation
+
+```{r}
+# create corr values
+correlation <- cor(raw, use = "complete.obs") 
+
+# plot correlations
+corrplot.mixed(correlation, tl.col = 'black', tl.pos = 'lt', number.cex= 11/ncol(raw))
+```
+
+
+
+
+
+
+
+
+## Data Preparation
+
+To address the issues in the data we discovered in the data exploration section, we will:
+
+* **CHANGE DATA TYPE** to factors for `Label Appeal`, `AcidIndex`, `STARS`, interpreting as categorical variables due to lack of continuity
+* **TAKE ABSOLUTE VALUE of all negative values** for 8 of the chemical measures (which must be in error)
+* **IMPUTE missing values** for 26.25% of cases that have a missing `STARS` value
+* **LOG transformation* for all of the numeric chemical variables that were not normally distributed
+
+
+
+
+### Change Some Variables to Factors
+
+We set the 3 variables identified earlier (`STARS`, `AcidIndex`, `LabelAppeal`) as factors. While they have numeric data, it is not continuous and represents a rating.
+
+```{r}
+raw$STARS <- as.factor(raw$STARS)
+raw$AcidIndex <- as.factor(raw$AcidIndex)
+raw$LabelAppeal <- as.factor(raw$LabelAppeal)
+```
+
+
+### Fix Negative Values
+
+With 21,766 negative values across many of the chemical variables, for which it doesn't make sense to have a negative value, we convert these to positive values so we retain some value (as opposed to omitting these measures). Variables include: `FixedAcidity`, `VolatileAcidity`, `CitricAcid`, `ResidualSugar`, `Chlorides`, `FreeSulfurDioxide`, `TotalSulfurDioxide`, `Sulphates`, `Alcohol`.
+
+```{r}
+# take absolute value of chemical variables that had negative values
+raw$FixedAcidity <- abs(raw$FixedAcidity)
+raw$VolatileAcidity <- abs(raw$VolatileAcidity)
+raw$CitricAcid <- abs(raw$CitricAcid)
+raw$ResidualSugar <- abs(raw$ResidualSugar)
+raw$Chlorides <- abs(raw$Chlorides)
+raw$FreeSulfurDioxide <- abs(raw$FreeSulfurDioxide)
+raw$TotalSulfurDioxide <- abs(raw$TotalSulfurDioxide)
+raw$Sulphates <- abs(raw$Sulphates)
+raw$Alcohol <- abs(raw$Alcohol)
+```
+
+
+### Impute Missing Values
+
+For the 7 variables that had <10% missing values, we will impute the missing values with the median for that variable. Variables include: `ResidualSugar`, `Chlorides`, `FreeSulfurDioxide`, `TotalSulfurDioxide`,  `pH`, `Sulphates`, `Alcohol`.
+
+```{r}
+raw <- raw %>%
+  mutate(
+  ResidualSugar = ifelse(is.na(ResidualSugar), median(ResidualSugar, na.rm = T), ResidualSugar),
+  Chlorides = ifelse(is.na(Chlorides), median(Chlorides, na.rm = T), Chlorides),
+  FreeSulfurDioxide = ifelse(is.na(FreeSulfurDioxide), median(FreeSulfurDioxide, na.rm = T), FreeSulfurDioxide),
+  TotalSulfurDioxide = ifelse(is.na(TotalSulfurDioxide), median(TotalSulfurDioxide, na.rm = T), TotalSulfurDioxide),
+  pH = ifelse(is.na(pH), median(pH, na.rm = T), pH),
+  Sulphates = ifelse(is.na(Sulphates), median(Sulphates, na.rm = T), Sulphates),
+  Alcohol = ifelse(is.na(Alcohol), median(Alcohol, na.rm = T), Alcohol))
+```
+
+
+### Flag STARS Missing Values & Set to 1-Star Rating
+With 26.25% of cases missing a `STARS` rating, we need to consider if we should drop the variable from modeling, impute the missing values, or flag these cases. There are some guidelines in data science that if there are beyond 30% missing values, the variable may be best dropped. Theoretically, the `STARS` variable should represent something close to our `TARGET` variable as we'd expect a relationship between high expert reviews and high case sales. Since this seems like too valuable of a variable to drop, and considering that depending on how the `STARS` data was obtained, a missing value could indicate a lesser quality or less popular wine (such that it hasn't been rated by experts), we choose to create a new variable where a '1' indicates a missing `STARS` value. Further, we fill in a '1' `STARS` rating for the NA values (so these cases will be included in the modeling).
+
+```{r}
+
+raw <- raw %>% 
+  mutate(
+  # if NA set new variable to 1
+  STARS_imputed = ifelse(is.na(STARS), 1, 0),
+  # if NA fill in with rating of 1
+  STARS = ifelse(is.na(STARS), 1, STARS))
+
+
+# set these variables to factor
+raw$STARS <- as.factor(raw$STARS)
+raw$STARS_imputed <- as.factor(raw$STARS_imputed)
+
+```
+
+
+### Preform Log Transformations
+
+The normality plots earlier identified the following variables could benefit from log transformations, which is even more true after having taken the absolute value of many of these variables (as a result of un-interpretable negative chemical values). We also add 1 to the new value in order to avoid any values of zero for which there is no defined log value.
+
+###### am I doing this log transformation right? I'm not confident -Rachel
+
+```{r}
+raw$log_FixedAcidity <- log(raw$FixedAcidity + 1)
+raw$log_VolatileAcidity <- log(raw$VolatileAcidity + 1)
+raw$log_CitricAcid <- log(raw$CitricAcid + 1)
+raw$log_ResidualSugar <- log(raw$ResidualSugar + 1)
+raw$log_Chlorides <- log(raw$Chlorides + 1)
+raw$log_FreeSulfurDioxide <- log(raw$FreeSulfurDioxide + 1)
+raw$TotalSulfurDioxide <-  log(raw$TotalSulfurDioxide + 1)
+raw$log_Density <- log(raw$Density + 1)
+raw$log_PH <- log(raw$pH + 1)
+raw$log_Sulphates <- log(raw$Sulphates + 1)
+raw$log_Alcohol <- log(raw$Alcohol + 1)
+```
+
+
+
+### Re-Run Normality & Correlation Plots
+
+After all of the above changes, we check the dataset below. We no longer have negative values and the log_ variables are present.
+
+```{r}
+raw %>%
+    diagnose_numeric()%>%
+    select(variables, min, mean, median, max, zero, minus)%>%
+    flextable(theme_fun = theme_booktabs()) %>%
+    colformat_double(digits = 2)
+```
+
+
+
+Looking at the normality plots for the 10 variables  for which we converted negative values into positive values and then performed a log transformation, they are more normal than they were previously, but some are still seriously skewed.
+
+
+```{r}
+raw %>%
+  select(log_FixedAcidity, log_VolatileAcidity, log_CitricAcid, log_ResidualSugar,
+         log_Chlorides, log_FreeSulfurDioxide, log_Density, log_PH,
+         log_Sulphates, log_Alcohol) %>%
+  plot_normality()
+
+```
+
+Creating a new correlation plot with our transformed variables it appears there is very little correlation between our `TARGET` variable and any of these chemical measures. 
+
+
+```{r}
+
+# create dataset that drops the pre-logged variables and factor variables
+raw_new <- raw %>%
+  select(log_FixedAcidity, log_VolatileAcidity, log_CitricAcid, log_ResidualSugar,
+         log_Chlorides, log_FreeSulfurDioxide, log_Density, log_PH,
+         log_Sulphates, log_Alcohol, TARGET)
+
+# create cor values
+correlation_new <- cor(raw_new) 
+
+# plot correlations
+corrplot.mixed(correlation_new, tl.col = 'black', tl.pos = 'lt', number.cex= 11/ncol(raw_new))
+```
+## Build Models
+
+Our prompt asks us to build at least two of three different models: *poisson*, *negative binomial*, and *multiple linear regression*. As there appears to be no correlation from the logged chemical variables, we won't include those in any of the following models.
+
+### The Poissons
+
+Need to explain quasi- choice.
+
+```{r}
+m_pois_1 <- glm(TARGET ~ AcidIndex + STARS + STARS_imputed + LabelAppeal, family = quasipoisson, raw)
+summary(m_pois_1)
+```
+
+
+
+```{r}
+m_pois_2 <- glm(TARGET ~ STARS + STARS_imputed, family = quasipoisson, raw)
+summary(m_pois_2)
+```
+
+
+
+
+### The Negative Binomials
+
+```{r}
+#m_binom_1 <- 
+#summary(m_binom_1)
+```
+
+
+
+```{r}
+#m_binom_2 <- 
+#summary(m_binom_2)
+```
+
+
+
+### The Multiple Linears
+
+
+```{r}
+#m_mlin_1 <- 
+#summary(m_mlin_1)
+```
+
+
+
+```{r}
+#m_mlin_2 <- 
+#summary(m_mlin_2)
+```
+
+
+
+
+## Model Selection
 
 
