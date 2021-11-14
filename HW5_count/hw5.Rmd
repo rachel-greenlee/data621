@@ -16,6 +16,8 @@ library(dplyr)
 library(flextable)
 library(dlookr) # for data exploration & imputation
 library(corrplot) # for visualization variable correlations
+library(ggplot2)
+library(tidyr) # for gather function
 
 raw <- read.csv("https://raw.githubusercontent.com/rachel-greenlee/data621/main/HW5_count/wine-training-data.csv")
 eval <- read.csv("https://raw.githubusercontent.com/rachel-greenlee/data621/main/HW5_count/wine-evaluation-data.csv")
@@ -78,6 +80,21 @@ raw %>%
 
 ### Checking for Normality
 
+
+Look at the distribution of all of the predictor variables with boxplots.
+```{r}
+raw %>%
+  gather() %>%
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free", ncol = 3) +
+  geom_boxplot() +
+  ggthemes::theme_fivethirtyeight()
+
+```
+
+
+
+
 Using the Shapiro-Wilk normality test on each of the variables, we see all of the p-values are less than 0.05 which means none of our variables are normally distributed in their raw form.
 
 ```{r}
@@ -92,7 +109,7 @@ raw %>%
 
 Below we visualize with a histogram and Q-Q plot for each variable for which we want to check for normality, excluding the `TARGET` variable and variables we will conver to factors later. It appears that all 11 of the variables would benefit from a log transformation, which will likely become even more necessary once we correct for the un-interpretable negative values many of these variables have in the original dataset.
 
-```{r, fig.height=6}
+```{r}
 # normality plots for all numeric dependent variables
 raw %>%
   select(-TARGET, -LabelAppeal, -STARS, -AcidIndex) %>%
@@ -141,7 +158,9 @@ corrplot.mixed(correlation, tl.col = 'black', tl.pos = 'lt', number.cex= 11/ncol
 
 
 
+### Check for Outliers
 
+not done yet
 
 
 
